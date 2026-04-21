@@ -52,6 +52,7 @@ jobs:
         working-directory: ./infra-dev/codes
 
       - name: Terraform Plan
+        if: ${{ github.event.inputs.terraform-apply == 'true' && github.event.inputs.terraform-destroy == 'false' }}
         run: terraform plan -out=tfplan
         working-directory: ./infra-dev/codes
 
