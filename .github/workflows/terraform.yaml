@@ -10,14 +10,31 @@ on:
         default: Apply
         type: choice
         options:
+          - Plan
           - Apply
           - Destroy
-
+          
 permissions:
   id-token: write
   contents: read
 
 jobs:
+
+  Plan:
+    name: Terraform Plan
+    runs-on: ubuntu-latest
+    if: ${{ github.event.inputs.terraform-action == 'Plan' }}
+
+    steps:
+
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - uses: ./.github/actions/terraform_setup
+
+      - name: Terraform Plan
+        run: terraform plan
+        working-directory: ./infra-dev/codes
 
   Apply:
     name: Terraform Plan for Apply
