@@ -1,0 +1,54 @@
+name: terraform CI/CD - Manual Deploy
+
+on workflow_dispatch:
+
+  inputs:
+    input-apply:
+      description: 'Executar Terraform Apply?'
+      required: true
+      default: false
+      type: choice
+      options:
+        - true
+        - false
+
+permissions:
+  id-token: write
+  content: read
+
+jobs:
+  job1:
+    name: Terraform Plan and Apply
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: "Configure AWS Credentials"
+        uses: aws-actions/configure-aws-credentials@v4.3.1
+        with:
+          role-to-assume: arn:aws:iam::538073092645:role/github_infra_terraform_role
+          aws-region: us-east-2
+      
+      - name: Hashcorp - Setup Terraform
+        uses: hashicorp/setup-terraform@v3.1.2
+
+      - name: Terraform Init
+        run: terraform init
+        working-directory: ./infra-dev/codes
+
+      - name: Terraform validate
+        run: terraform validate
+        working-directory: ./infra-dev/codes
+
+      - name: Terraform Plan
+        run: terraform plan -out=tfplan
+        working-directory: ./infra-dev/codes
+
+      - name: Terraform Apply
+        if: ${{ github.event.inputs.input-apply == 'true' }}
+        run: terraform apply -auto-approve tfplan
+        working-directory: ./infra-dev/codes
+
+
+      
