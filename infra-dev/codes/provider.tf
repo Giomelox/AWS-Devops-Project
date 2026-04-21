@@ -1,7 +1,7 @@
 terraform {
 
   backend "s3" {
-    bucket = "projeto-docker-terraform-state-538073092645-us-east-1-an"
+    bucket = "projeto-docker-terraform-state-538073092645-us-east-2-an"
     key    = "infra-dev/terraform.tfstate"
     region = "us-east-2"
     encrypt = true
