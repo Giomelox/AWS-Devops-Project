@@ -24,4 +24,4 @@ runs:
     - name: Terraform Validate
       run: terraform validate
       shell: bash
-      working-directory: ./infra-dev/codes
+      working-directory: ./infra-dev/codes 
