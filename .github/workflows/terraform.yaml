@@ -4,8 +4,17 @@ on:
   workflow_dispatch:
 
     inputs:
-      input-apply:
+      terraform-apply:
         description: 'Executar Terraform Apply?'
+        required: true
+        default: false
+        type: choice
+        options:
+          - true
+          - false
+
+      terraform-destroy:
+        description: 'Executar Terraform Destroy?'
         required: true
         default: false
         type: choice
@@ -47,9 +56,16 @@ jobs:
         working-directory: ./infra-dev/codes
 
       - name: Terraform Apply
-        if: ${{ github.event.inputs.input-apply == 'true' }}
+        if: ${{ github.event.inputs.terraform-apply == 'true' }}
         run: terraform apply -auto-approve tfplan
         working-directory: ./infra-dev/codes
 
+      - name: Terraform Plan for Destroy
+        if: ${{ github.event.inputs.terraform-apply == 'false' and github.event.inputs.terraform-destroy == 'true' }}
+        run: terraform plan -destroy -out=tfplan-destroy
+        working-directory: ./infra-dev/codes
 
-      
+      - name: Terraform Apply
+        if: ${{ github.event.inputs.terraform-apply == 'false' and github.event.inputs.terraform-destroy == 'true' }}
+        run: terraform apply -auto-approve tfplan-destroy
+        working-directory: ./infra-dev/codes
