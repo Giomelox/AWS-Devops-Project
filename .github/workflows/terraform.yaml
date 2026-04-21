@@ -61,11 +61,11 @@ jobs:
         working-directory: ./infra-dev/codes
 
       - name: Terraform Plan for Destroy
-        if: ${{ github.event.inputs.terraform-apply == 'false' and github.event.inputs.terraform-destroy == 'true' }}
+        if: ${{ github.event.inputs.terraform-apply == 'false' && github.event.inputs.terraform-destroy == 'true' }}
         run: terraform plan -destroy -out=tfplan-destroy
         working-directory: ./infra-dev/codes
 
       - name: Terraform Apply
-        if: ${{ github.event.inputs.terraform-apply == 'false' and github.event.inputs.terraform-destroy == 'true' }}
+        if: ${{ github.event.inputs.terraform-apply == 'false' && github.event.inputs.terraform-destroy == 'true' }}
         run: terraform apply -auto-approve tfplan-destroy
         working-directory: ./infra-dev/codes
