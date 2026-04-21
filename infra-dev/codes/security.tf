@@ -1,6 +1,10 @@
-# Cria um grupo de segurança para permitir acesso SSH às instâncias EC2
+# ==========================================================
+# Security Group para a instância EC2 
+# Permite acesso HTTP (porta 80) de qualquer lugar, permitindo que o site estático seja acessível publicamente
+# Permite todo o tráfego de saída, garantindo que a instância EC2 possa se comunicar com outros serviços da AWS, como o Amazon ECR para puxar as imagens Docker do site estático
+# ==========================================================
 resource "aws_security_group" "sg_ssh" {
-  name   = "allow_ssh"
+  name   = "infra-dev-sg"
   vpc_id = aws_vpc.main.id
 
   ingress {

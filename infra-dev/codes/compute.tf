@@ -9,5 +9,9 @@ resource "aws_instance" "site_estatico_ec2" {
   associate_public_ip_address = true
   availability_zone           = aws_subnet.public_subnet.availability_zone
 
+  tags = {
+    Name = "infra-dev-site-estatico-ec2"
+  }
+
   user_data = file("ec2_user_data.sh")
 }

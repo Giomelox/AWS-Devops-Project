@@ -1,0 +1,20 @@
+name: Docker CI/CD - Automatic Deploy
+
+on:
+  push:
+    branches:
+      - main
+
+jobs:
+  Build_ECR:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v5.0.0
+      
+      - name: Configure AWS Credentials
+        uses: aws-actions/configure-aws-credentials@v4
+        with:
+          role-to-assume: arn:aws:iam::538073092645:role/github_infra_terraform_role
+          aws-region: us-east-2

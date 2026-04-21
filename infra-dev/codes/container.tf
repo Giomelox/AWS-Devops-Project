@@ -1,6 +1,6 @@
 # Cria um repositório no Amazon ECR para armazenar as imagens Docker do site estático
 resource "aws_ecr_repository" "site_estatico" {
-  name = "site_estatico"
+  name = "infra-dev-site_estatico-ecr"
 
   image_tag_mutability = "IMMUTABLE"
 
