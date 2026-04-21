@@ -56,7 +56,7 @@ jobs:
         working-directory: ./infra-dev/codes
 
       - name: Terraform Apply
-        if: ${{ github.event.inputs.terraform-apply == 'true' }}
+        if: ${{ github.event.inputs.terraform-apply == 'true' && github.event.inputs.terraform-destroy == 'false' }}
         run: terraform apply -auto-approve tfplan
         working-directory: ./infra-dev/codes
 
