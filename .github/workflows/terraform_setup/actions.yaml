@@ -1,0 +1,27 @@
+name: Terraform Setup
+description: "Setup AWS + Terraform init + validate"
+
+runs:
+  using: "composite"
+  steps:
+    - name: Checkout code
+      uses: actions/checkout@v4
+
+    - name: Configure AWS Credentials
+      uses: aws-actions/configure-aws-credentials@v4.3.1
+      with:
+        role-to-assume: arn:aws:iam::538073092645:role/github_infra_terraform_role
+        aws-region: us-east-2
+
+    - name: Hashcorp -Setup Terraform
+      uses: hashicorp/setup-terraform@v3.1.2
+
+    - name: Terraform Init
+      run: terraform init
+      shell: bash
+      working-directory: ./infra-dev/codes
+
+    - name: Terraform Validate
+      run: terraform validate
+      shell: bash
+      working-directory: ./infra-dev/codes

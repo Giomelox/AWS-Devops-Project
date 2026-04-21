@@ -4,69 +4,52 @@ on:
   workflow_dispatch:
 
     inputs:
-      terraform-apply:
-        description: 'Executar Terraform Apply?'
+      terraform-action:
+        description: 'Escolha a opção para aplicar as mudanças do Terraform'
         required: true
-        default: false
+        default: Apply
         type: choice
         options:
-          - true
-          - false
-
-      terraform-destroy:
-        description: 'Executar Terraform Destroy?'
-        required: true
-        default: false
-        type: choice
-        options:
-          - true
-          - false
+          - Apply
+          - Destroy
 
 permissions:
   id-token: write
   contents: read
 
 jobs:
-  job1:
-    name: Terraform Plan and Apply
+
+  Apply:
+    name: Terraform Plan for Apply
     runs-on: ubuntu-latest
+    if: ${{ github.event.inputs.terraform-action == 'Apply' }}
+
     steps:
-      - name: Checkout code
-        uses: actions/checkout@v4
 
-      - name: "Configure AWS Credentials"
-        uses: aws-actions/configure-aws-credentials@v4.3.1
-        with:
-          role-to-assume: arn:aws:iam::538073092645:role/github_infra_terraform_role
-          aws-region: us-east-2
+      - uses: ./.github/actions/terraform-setup
       
-      - name: Hashcorp - Setup Terraform
-        uses: hashicorp/setup-terraform@v3.1.2
-
-      - name: Terraform Init
-        run: terraform init
-        working-directory: ./infra-dev/codes
-
-      - name: Terraform validate
-        run: terraform validate
-        working-directory: ./infra-dev/codes
-
       - name: Terraform Plan
-        if: ${{ github.event.inputs.terraform-apply == 'true' && github.event.inputs.terraform-destroy == 'false' }}
         run: terraform plan -out=tfplan
         working-directory: ./infra-dev/codes
 
       - name: Terraform Apply
-        if: ${{ github.event.inputs.terraform-apply == 'true' && github.event.inputs.terraform-destroy == 'false' }}
         run: terraform apply -auto-approve tfplan
         working-directory: ./infra-dev/codes
 
+
+  Destroy:
+    name: Terraform Plan for Destroy
+    runs-on: ubuntu-latest
+    if: ${{ github.event.inputs.terraform-action == 'Destroy' }}
+
+    steps:
+
+      - uses: ./.github/actions/terraform-setup
+
       - name: Terraform Plan for Destroy
-        if: ${{ github.event.inputs.terraform-apply == 'false' && github.event.inputs.terraform-destroy == 'true' }}
         run: terraform plan -destroy -out=tfplan-destroy
         working-directory: ./infra-dev/codes
 
       - name: Terraform Destroy
-        if: ${{ github.event.inputs.terraform-apply == 'false' && github.event.inputs.terraform-destroy == 'true' }}
         run: terraform apply -auto-approve tfplan-destroy
         working-directory: ./infra-dev/codes
