@@ -65,7 +65,7 @@ jobs:
         run: terraform plan -destroy -out=tfplan-destroy
         working-directory: ./infra-dev/codes
 
-      - name: Terraform Apply
+      - name: Terraform Destroy
         if: ${{ github.event.inputs.terraform-apply == 'false' && github.event.inputs.terraform-destroy == 'true' }}
         run: terraform apply -auto-approve tfplan-destroy
         working-directory: ./infra-dev/codes
