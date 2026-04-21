@@ -3,15 +3,15 @@ name: terraform CI/CD - Manual Deploy
 on:
   workflow_dispatch:
 
-  inputs:
-    input-apply:
-      description: 'Executar Terraform Apply?'
-      required: true
-      default: false
-      type: choice
-      options:
-        - true
-        - false
+    inputs:
+      input-apply:
+        description: 'Executar Terraform Apply?'
+        required: true
+        default: false
+        type: choice
+        options:
+          - true
+          - false
 
 permissions:
   id-token: write
