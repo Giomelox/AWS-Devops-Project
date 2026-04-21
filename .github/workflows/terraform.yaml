@@ -1,6 +1,7 @@
 name: terraform CI/CD - Manual Deploy
 
-on workflow_dispatch:
+on:
+  workflow_dispatch:
 
   inputs:
     input-apply:
