@@ -10,8 +10,8 @@ on:
         default: "false"
         type: choice
         options:
-          - true
-          - false
+          - "true"
+          - "false"
 
 permissions:
   id-token: write
