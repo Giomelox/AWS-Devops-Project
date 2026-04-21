@@ -26,7 +26,7 @@ jobs:
 
     steps:
 
-      - uses: ./.github/actions/terraform-setup
+      - uses: ./.github/workflows/terraform_setup/actions.yaml  
       
       - name: Terraform Plan
         run: terraform plan -out=tfplan
@@ -44,7 +44,7 @@ jobs:
 
     steps:
 
-      - uses: ./.github/actions/terraform-setup
+      - uses: ./.github/workflows/terraform_setup/actions.yaml
 
       - name: Terraform Plan for Destroy
         run: terraform plan -destroy -out=tfplan-destroy
