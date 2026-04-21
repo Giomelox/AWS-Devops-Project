@@ -26,6 +26,10 @@ jobs:
     if: ${{ github.event.inputs.terraform-action == 'Plan' }}
 
     steps:
+
+      - name: Checkout code
+        uses: actions/checkout@v5.0.0
+
       - uses: ./.github/actions/terraform_setup
 
       - name: Terraform Plan
@@ -38,6 +42,10 @@ jobs:
     if: ${{ github.event.inputs.terraform-action == 'Apply' }}
 
     steps:
+
+      - name: Checkout code
+        uses: actions/checkout@v5.0.0
+
       - uses: ./.github/actions/terraform_setup
       
       - name: Terraform Plan
@@ -55,6 +63,10 @@ jobs:
     if: ${{ github.event.inputs.terraform-action == 'Destroy' }}
 
     steps:
+
+      - name: Checkout code
+        uses: actions/checkout@v5.0.0
+        
       - uses: ./.github/actions/terraform_setup
 
       - name: Terraform Plan for Destroy
