@@ -7,7 +7,7 @@ on:
       terraform-action:
         description: 'Escolha a opção para aplicar as mudanças do Terraform'
         required: true
-        default: Apply
+        default: Plan
         type: choice
         options:
           - Plan
