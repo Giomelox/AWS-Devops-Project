@@ -84,24 +84,29 @@ jobs:
         env:
           IMAGE_TAG: ${{ needs.Build_ECR.outputs.image_tag }}
         run: |
-          # Busca o Instance ID dinamicamente pela tag Name da EC2
-          # O filtro 'running' garante que a instância está ativa antes de tentar o deploy
           INSTANCE_ID=$(aws ec2 describe-instances \
             --filters "Name=tag:Name,Values=${{ env.EC2_NAME }}" \
                       "Name=instance-state-name,Values=running" \
             --query "Reservations[].Instances[].InstanceId" \
             --output text)
 
-          # Executa os comandos remotamente na EC2 via SSM — sem necessidade de SSH
+          ECR_IMAGE="${{ env.AWS_ACCOUNT_ID }}.dkr.ecr.${{ env.AWS_REGION }}.amazonaws.com/${{ env.ECR_REPOSITORY }}:${IMAGE_TAG}"
+
+          # Monta o JSON em uma variável separada para evitar conflito de aspas
+          COMMANDS=$(cat <<EOF
+          {
+            "commands": [
+              "aws ecr get-login-password --region ${{ env.AWS_REGION }} | docker login --username AWS --password-stdin ${{ env.AWS_ACCOUNT_ID }}.dkr.ecr.${{ env.AWS_REGION }}.amazonaws.com",
+              "docker pull ${ECR_IMAGE}",
+              "docker stop ${{ env.CONTAINER_NAME }} || true",
+              "docker rm ${{ env.CONTAINER_NAME }} || true",
+              "docker run -d --name ${{ env.CONTAINER_NAME }} -p 80:80 ${ECR_IMAGE}"
+            ]
+          }
+          EOF
+          )
+
           aws ssm send-command \
-            --instance-ids $INSTANCE_ID \
+            --instance-ids "$INSTANCE_ID" \
             --document-name "AWS-RunShellScript" \
-            --parameters "{
-              "commands": [
-                "aws ecr get-login-password --region ${{ env.AWS_REGION }} | docker login --username AWS --password-stdin ${{ env.AWS_ACCOUNT_ID }}.dkr.ecr.${{ env.AWS_REGION }}.amazonaws.com",
-                "docker pull ${{ env.AWS_ACCOUNT_ID }}.dkr.ecr.${{ env.AWS_REGION }}.amazonaws.com/${{ env.ECR_REPOSITORY }}:$IMAGE_TAG",
-                "docker stop ${{ env.CONTAINER_NAME }} || true",
-                "docker rm ${{ env.CONTAINER_NAME }} || true",
-                "docker run -d --name ${{ env.CONTAINER_NAME }} -p 80:80 ${{ env.AWS_ACCOUNT_ID }}.dkr.ecr.${{ env.AWS_REGION }}.amazonaws.com/${{ env.ECR_REPOSITORY }}:$IMAGE_TAG"
-              ]
-            }"
+            --parameters "$COMMANDS"
