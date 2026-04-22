@@ -13,5 +13,5 @@ resource "aws_instance" "site_estatico_ec2" {
     Name = "infra-dev-site-estatico-ec2"
   }
 
-  user_data = file("ec2_user_data.sh")
+  user_data = file("user_data/ec2_user_data.sh")
 }
