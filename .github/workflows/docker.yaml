@@ -1,28 +1,54 @@
 name: Docker CI/CD - Automatic Deploy
 
+# Este workflow é acionado quando uma tag seguindo o padrão 'v*.*.*' é criada (ex: v1.0.0).
+# Fluxo: Build da imagem Docker → Push para ECR → Deploy na EC2 via SSM
 on:
   push:
-    branches:
-      - main
+    tags:
+      - 'v*.*.*'
 
 permissions:
-  id-token: write
-  contents: read
+  id-token: write   # Necessário para autenticação OIDC com a AWS
+  contents: read    # Necessário para o actions/checkout clonar o repositório
+
+# Variáveis globais reutilizadas em ambos os jobs
+# Centralizar aqui evita hardcode e facilita manutenção
+env:
+  AWS_REGION: us-east-2
+  AWS_ACCOUNT_ID: 538073092645
+  ECR_REPOSITORY: infra-dev-site_estatico-ecr
+  EC2_NAME: infra-dev-site-estatico-ec2
+  CONTAINER_NAME: site_estatico
 
 jobs:
+
   Build_ECR:
     runs-on: ubuntu-latest
+    # Expõe a image_tag para o job Deploy_image_EC2
+    # Necessário pois jobs são isolados entre si no GitHub Actions
+    outputs:
+      image_tag: ${{ steps.set_tag.outputs.image_tag }}
 
     steps:
       - name: Checkout code
-        uses: actions/checkout@v5.0.0
-      
+        uses: actions/checkout@v5.0.0  # Clona o repositório no runner
+
+      # Calcula a tag uma única vez para garantir consistência entre os jobs
+      # Formato: v1.0.0-a3f1c2d (ref_name + 7 primeiros caracteres do SHA)
+      - name: Set Image Tag
+        id: set_tag
+        run: |
+          SHORT_SHA=$(echo ${{ github.sha }} | cut -c1-7)
+          echo "image_tag=${{ github.ref_name }}-$SHORT_SHA" >> $GITHUB_OUTPUT
+
+      # Autentica na AWS via OIDC — sem necessidade de chaves de acesso estáticas
       - name: Configure AWS Credentials
         uses: aws-actions/configure-aws-credentials@v4
         with:
-          role-to-assume: arn:aws:iam::538073092645:role/github_infra_docker_role
-          aws-region: us-east-2
+          role-to-assume: arn:aws:iam::${{ env.AWS_ACCOUNT_ID }}:role/github_infra_docker_role
+          aws-region: ${{ env.AWS_REGION }}
       
+      # Realiza login no ECR e expõe o registry URL via outputs (steps.login-ecr.outputs.registry)
       - name: Login Amazon ECR
         id: login-ecr
         uses: aws-actions/amazon-ecr-login@v2
@@ -30,19 +56,57 @@ jobs:
       - name: Build, Tag, and Push Docker Image to Amazon ECR
         env:
           REGISTRY: ${{ steps.login-ecr.outputs.registry }}
-          REPOSITORY: infra-dev-site_estatico-ecr
-          IMAGE_TAG: ${{ github.ref_name }}-${{ github.sha }}
-          
+          IMAGE_TAG: ${{ steps.set_tag.outputs.image_tag }}
         run: |
+          # Constrói a imagem localmente com a tag versionada
+          docker build -t ${{ env.ECR_REPOSITORY }}:$IMAGE_TAG .
 
-          # Diminui o SHA do commit para os últimos 7 caracteres para criar uma tag mais legível
-          SHORT_SHA=$(echo ${{ github.sha }} | cut -c1-7)
+          # Adiciona o prefixo do registry ECR para que o push vá ao destino correto
+          docker tag ${{ env.ECR_REPOSITORY }}:$IMAGE_TAG $REGISTRY/${{ env.ECR_REPOSITORY }}:$IMAGE_TAG
 
-          # Constrói a imagem Docker, marca com a tag do branch e do SHA curto, e empurra para o Amazon ECR
-          docker build -t $REPOSITORY:${{ github.ref_name }}-$SHORT_SHA .
+          # Envia a imagem para o ECR — a lifecycle policy do repositório mantém apenas as últimas 5 imagens
+          docker push $REGISTRY/${{ env.ECR_REPOSITORY }}:$IMAGE_TAG
 
-          # Marca a imagem com a URL completa do repositório ECR para garantir que seja empurrada para o local correto
-          docker tag $REPOSITORY:${{ github.ref_name }}-$SHORT_SHA $REGISTRY/$REPOSITORY:${{ github.ref_name }}-$SHORT_SHA
+  # Só executa após o Build_ECR concluir com sucesso
+  # Recebe a image_tag gerada no job anterior via needs.Build_ECR.outputs.image_tag
+  Deploy_image_EC2:
+    needs: Build_ECR
+    runs-on: ubuntu-latest
 
-          # Empurra a imagem Docker para o Amazon ECR usando a URL completa do repositório
-          docker push $REGISTRY/$REPOSITORY:${{ github.ref_name }}-$SHORT_SHA
+    steps:
+      - name: Configure AWS Credentials
+        uses: aws-actions/configure-aws-credentials@v4
+        with:
+          role-to-assume: arn:aws:iam::${{ env.AWS_ACCOUNT_ID }}:role/github_infra_docker_role
+          aws-region: ${{ env.AWS_REGION }}
+
+      - name: Deploy Docker Image na EC2 via SSM
+        env:
+          IMAGE_TAG: ${{ needs.Build_ECR.outputs.image_tag }}
+        run: |
+          # Busca o Instance ID dinamicamente pela tag Name da EC2
+          # O filtro 'running' garante que a instância está ativa antes de tentar o deploy
+          INSTANCE_ID=$(aws ec2 describe-instances \
+            --filters "Name=tag:Name,Values=${{ env.EC2_NAME }}" \
+                      "Name=instance-state-name,Values=running" \
+            --query "Reservations[].Instances[].InstanceId" \
+            --output text)
+
+          # Executa os comandos remotamente na EC2 via SSM — sem necessidade de SSH
+          aws ssm send-command \
+            --instance-ids $INSTANCE_ID \
+            --document-name "AWS-RunShellScript" \
+            --parameters commands="[
+              # Autentica o Docker no ECR usando credenciais temporárias da role IAM da EC2
+              'aws ecr get-login-password --region ${{ env.AWS_REGION }} | docker login --username AWS --password-stdin ${{ env.AWS_ACCOUNT_ID }}.dkr.ecr.${{ env.AWS_REGION }}.amazonaws.com',
+
+              # Baixa a imagem com a tag exata gerada no job Build_ECR
+              'docker pull ${{ env.AWS_ACCOUNT_ID }}.dkr.ecr.${{ env.AWS_REGION }}.amazonaws.com/${{ env.ECR_REPOSITORY }}:$IMAGE_TAG',
+
+              # Para e remove o container anterior — '|| true' evita falha caso o container não exista (ex: primeiro deploy)
+              'docker stop ${{ env.CONTAINER_NAME }} || true',
+              'docker rm ${{ env.CONTAINER_NAME }} || true',
+
+              # Sobe o novo container em background expondo a porta 80
+              'docker run -d --name ${{ env.CONTAINER_NAME }} -p 80:80 ${{ env.AWS_ACCOUNT_ID }}.dkr.ecr.${{ env.AWS_REGION }}.amazonaws.com/${{ env.ECR_REPOSITORY }}:$IMAGE_TAG'
+            ]"

@@ -1,8 +1,9 @@
 name: Terraform CI/CD - Manual Deploy
 
+# Workflow acionado manualmente via GitHub Actions UI
+# Permite escolher entre Plan, Apply ou Destroy antes de executar
 on:
   workflow_dispatch:
-
     inputs:
       terraform-action:
         description: 'Escolha a opção para aplicar as mudanças do Terraform'
@@ -13,13 +14,15 @@ on:
           - Plan
           - Apply
           - Destroy
-          
+
 permissions:
-  id-token: write
-  contents: read
+  id-token: write   # Necessário para autenticação OIDC com a AWS
+  contents: read    # Necessário para o actions/checkout clonar o repositório
 
 jobs:
 
+  # Apenas visualiza as mudanças que seriam aplicadas — sem alterar nada na infraestrutura
+  # Útil para revisão antes de um Apply
   Plan:
     name: Terraform Plan
     runs-on: ubuntu-latest
@@ -28,14 +31,19 @@ jobs:
     steps:
 
       - name: Checkout code
-        uses: actions/checkout@v5.0.0
+        uses: actions/checkout@v5.0.0  
 
+      # Action local que configura credenciais AWS e instala o Terraform
+      # Definida em .github/actions/terraform_setup/action.yaml
       - uses: ./.github/actions/terraform_setup
 
+      # Exibe as mudanças planejadas sem aplicá-las
       - name: Terraform Plan
         run: terraform plan
         working-directory: ./infra-dev/codes
 
+  # Gera o plano e aplica as mudanças na infraestrutura
+  # O -out=tfplan garante que o Apply executa exatamente o que foi planejado
   Apply:
     name: Terraform Plan for Apply
     runs-on: ubuntu-latest
@@ -48,15 +56,18 @@ jobs:
 
       - uses: ./.github/actions/terraform_setup
       
+      # Gera o plano e salva em arquivo para garantir que o Apply execute exatamente o que foi planejado
       - name: Terraform Plan
         run: terraform plan -out=tfplan
         working-directory: ./infra-dev/codes
 
+      # Aplica o plano salvo — -auto-approve evita confirmação manual no runner
       - name: Terraform Apply
         run: terraform apply -auto-approve tfplan
         working-directory: ./infra-dev/codes
 
-
+  # Destrói toda a infraestrutura gerenciada pelo Terraform
+  # Use com cautela — esta operação é irreversível
   Destroy:
     name: Terraform Plan for Destroy
     runs-on: ubuntu-latest
@@ -69,10 +80,12 @@ jobs:
 
       - uses: ./.github/actions/terraform_setup
 
+      # Gera o plano de destruição e salva em arquivo
       - name: Terraform Plan for Destroy
         run: terraform plan -destroy -out=tfplan-destroy
         working-directory: ./infra-dev/codes
 
+      # Executa a destruição com base no plano gerado
       - name: Terraform Destroy
         run: terraform apply -auto-approve tfplan-destroy
         working-directory: ./infra-dev/codes
