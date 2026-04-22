@@ -20,5 +20,29 @@ jobs:
       - name: Configure AWS Credentials
         uses: aws-actions/configure-aws-credentials@v4
         with:
-          role-to-assume: arn:aws:iam::538073092645:role/github_infra_terraform_role
+          role-to-assume: arn:aws:iam::538073092645:role/github_infra_docker_role
           aws-region: us-east-2
+      
+      - name: Login Amazon ECR
+        id: login-ecr
+        uses: aws-actions/amazon-ecr-login@v2
+
+      - name: Build, Tag, and Push Docker Image to Amazon ECR
+        env:
+          REGISTRY: ${{ steps.login-ecr.outputs.registry }}
+          REPOSITORY: infra-dev-site_estatico-ecr
+          IMAGE_TAG: ${{ github.ref_name }}-${{ github.sha }}
+          
+        run: |
+
+          # Diminui o SHA do commit para os últimos 7 caracteres para criar uma tag mais legível
+          SHORT_SHA=$(echo ${{ github.sha }} | cut -c1-7)
+
+          # Constrói a imagem Docker, marca com a tag do branch e do SHA curto, e empurra para o Amazon ECR
+          docker build -t $REPOSITORY:${{ github.ref_name }}-$SHORT_SHA .
+
+          # Marca a imagem com a URL completa do repositório ECR para garantir que seja empurrada para o local correto
+          docker tag $REPOSITORY:${{ github.ref_name }}-$SHORT_SHA $REGISTRY/$REPOSITORY:${{ github.ref_name }}-$SHORT_SHA
+
+          # Empurra a imagem Docker para o Amazon ECR usando a URL completa do repositório
+          docker push $REGISTRY/$REPOSITORY:${{ github.ref_name }}-$SHORT_SHA
