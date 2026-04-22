@@ -96,17 +96,12 @@ jobs:
           aws ssm send-command \
             --instance-ids $INSTANCE_ID \
             --document-name "AWS-RunShellScript" \
-            --parameters commands="[
-              # Autentica o Docker no ECR usando credenciais temporárias da role IAM da EC2
-              'aws ecr get-login-password --region ${{ env.AWS_REGION }} | docker login --username AWS --password-stdin ${{ env.AWS_ACCOUNT_ID }}.dkr.ecr.${{ env.AWS_REGION }}.amazonaws.com',
-
-              # Baixa a imagem com a tag exata gerada no job Build_ECR
-              'docker pull ${{ env.AWS_ACCOUNT_ID }}.dkr.ecr.${{ env.AWS_REGION }}.amazonaws.com/${{ env.ECR_REPOSITORY }}:$IMAGE_TAG',
-
-              # Para e remove o container anterior — '|| true' evita falha caso o container não exista (ex: primeiro deploy)
-              'docker stop ${{ env.CONTAINER_NAME }} || true',
-              'docker rm ${{ env.CONTAINER_NAME }} || true',
-
-              # Sobe o novo container em background expondo a porta 80
-              'docker run -d --name ${{ env.CONTAINER_NAME }} -p 80:80 ${{ env.AWS_ACCOUNT_ID }}.dkr.ecr.${{ env.AWS_REGION }}.amazonaws.com/${{ env.ECR_REPOSITORY }}:$IMAGE_TAG'
-            ]"
+            --parameters '{
+              "commands": [
+                "aws ecr get-login-password --region ${{ env.AWS_REGION }} | docker login --username AWS --password-stdin ${{ env.AWS_ACCOUNT_ID }}.dkr.ecr.${{ env.AWS_REGION }}.amazonaws.com",
+                "docker pull ${{ env.AWS_ACCOUNT_ID }}.dkr.ecr.${{ env.AWS_REGION }}.amazonaws.com/${{ env.ECR_REPOSITORY }}:$IMAGE_TAG",
+                "docker stop ${{ env.CONTAINER_NAME }} || true",
+                "docker rm ${{ env.CONTAINER_NAME }} || true",
+                "docker run -d --name ${{ env.CONTAINER_NAME }} -p 80:80 ${{ env.AWS_ACCOUNT_ID }}.dkr.ecr.${{ env.AWS_REGION }}.amazonaws.com/${{ env.ECR_REPOSITORY }}:$IMAGE_TAG"
+              ]
+            }'
